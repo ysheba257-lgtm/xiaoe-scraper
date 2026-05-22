@@ -1,242 +1,286 @@
 # xiaoe-scraper
 
-**一键下载小鹅通视频，与对于爬取视频的skill，
-One-click batch downloader for course videos on xiaoe-tech (小鹅通) platforms.**
+**小鹅通课程视频一键批量下载器 —— 附带完整的浏览器爬虫 Skill**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 
-Scrolling, password-protected, 68-video courses?  One command.  Done.
+滚动加载、密码保护、68 个视频的课程页面？一行命令，全自动搞定。
 
 ---
 
-## Table of Contents
+## 目录
 
-- [Table of Contents](#table-of-contents)
-- [Quick Start](#quick-start)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Usage](#usage)
-  - [One-shot mode (recommended)](#one-shot-mode-recommended)
-  - [Two-step mode](#two-step-mode)
-- [How It Works](#how-it-works)
-  - [Architecture](#architecture)
-  - [Key challenges solved](#key-challenges-solved)
-- [Project Structure](#project-structure)
-- [Configuration](#configuration)
-- [FAQ](#faq)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
+- [环境要求](#环境要求)
+- [安装](#安装)
+- [完整使用流程](#完整使用流程)
+  - [第一步：启动带远程调试的 Chrome](#第一步启动带远程调试的-chrome)
+  - [第二步：打开课程页面并登录](#第二步打开课程页面并登录)
+  - [第三步：一键下载（推荐）](#第三步一键下载推荐)
+  - [第四步：分步模式（可选）](#第四步分步模式可选)
+- [命令行参数](#命令行参数)
+- [工作原理](#工作原理)
+  - [整体架构](#整体架构)
+  - [核心流程](#核心流程)
+- [踩坑经验](#踩坑经验)
+- [项目结构](#项目结构)
+- [常见问题](#常见问题)
+- [故障排除](#故障排除)
+- [贡献](#贡献)
+- [许可证](#许可证)
 
 ---
 
-## Quick Start
+## 环境要求
+
+| 工具 | 版本要求 | 检查命令 |
+|------|----------|----------|
+| Python | ≥ 3.10 | `python --version` |
+| Chrome / Edge | 最新版 | |
+| ffmpeg | ≥ 4.0 | `ffmpeg -version` |
+
+**ffmpeg** 必须在系统的 `PATH` 中。可以从 [ffmpeg.org](https://ffmpeg.org/) 下载，或通过包管理器安装。
+
+> Windows 用户推荐：`winget install ffmpeg`，一行搞定。
+
+---
+
+## 安装
 
 ```bash
-# 1. launch Chrome with remote debugging
-chrome --remote-debugging-port=9222
+# 1. 克隆项目
+git clone https://github.com/ysheba257-lgtm/xiaoe-scraper.git
+cd xiaoe-scraper
 
-# 2. open your course page, log in
+# 2. 安装依赖
+pip install -e .
+playwright install chromium
+```
 
-# 3. run
+> 不需要安装任何浏览器扩展。工具通过 CDP 协议（Chrome DevTools Protocol）直接和你手动启动的 Chrome 通信。
+
+---
+
+## 完整使用流程
+
+### 第一步：启动带远程调试的 Chrome
+
+Chrome 默认不会对外开放调试接口，需要手动开启。
+
+**Windows** — 按 `Win + R`，输入：
+```
+chrome.exe --remote-debugging-port=9222
+```
+
+**macOS** — 打开终端：
+```bash
+open -a "Google Chrome" --args --remote-debugging-port=9222
+```
+
+**Linux**：
+```bash
+google-chrome --remote-debugging-port=9222
+```
+
+> Chrome 136 以上版本对默认用户目录会忽略 `--remote-debugging-port`。如果上述命令无效，加上 `--user-data-dir` 参数：
+> ```
+> chrome.exe --remote-debugging-port=9222 --user-data-dir=C:\chrome-debug-profile
+> ```
+
+### 第二步：打开课程页面并登录
+
+在新启动的 Chrome 窗口中：
+1. 打开课程链接（例如 `https://u3oz5.xetslk.com/s/xQK7I`）
+2. 如果需要登录，完成登录
+3. 确认页面已显示课程目录
+
+### 第三步：一键下载（推荐）
+
+```bash
 python -m xiaoe_scraper all "https://u3oz5.xetslk.com/s/xQK7I" \
     --password 1341 \
     --out ./videos/
 ```
 
----
+工具会自动完成以下操作：
+- 连接到 Chrome
+- 自动输入课程密码
+- 滚动加载全部课程（包括虚拟滚动加载的隐藏条目）
+- 提取每个视频的标题和资源 ID
+- 逐个打开视频页，捕获 m3u8 链接，立即用 ffmpeg 下载
 
-## Prerequisites
+下载完成后，所有 `.mp4` 文件按 `序号_课程标题.mp4` 的命名保存到输出目录。
 
-| Tool | Version | Check |
-|------|---------|-------|
-| Python | ≥ 3.10 | `python --version` |
-| Chrome / Edge | Recent | |
-| ffmpeg | ≥ 4.0 | `ffmpeg -version` |
-
-**ffmpeg** must be on your `PATH`.  Download from [ffmpeg.org](https://ffmpeg.org/) or install via your package manager.
-
----
-
-## Installation
+**实战示例**：
 
 ```bash
-git clone https://github.com/<your-username>/xiaoe-scraper.git
-cd xiaoe-scraper
-pip install -e .
-playwright install chromium
+# 下载到 D 盘的"卓越增长视频"文件夹
+python -m xiaoe_scraper all "https://u3oz5.xetslk.com/s/xQK7I" \
+    --password 1341 \
+    --out "D:/卓越增长视频/"
+
+# 如果课程没有密码保护
+python -m xiaoe_scraper all "https://example.xetslk.com/s/xxxxx" \
+    --out ./videos/
 ```
 
-The editable install (`-e`) keeps the repo checkout live — useful if you want to tweak helpers.
+### 第四步：分步模式（可选）
 
-> **Note:** you do *not* need to install a browser extension.  The tool speaks CDP (Chrome DevTools Protocol) directly to a Chrome instance you launch yourself.
+如果你希望先查看课程列表再决定下载哪些，可以分两步操作：
 
----
-
-## Usage
-
-### One-shot mode (recommended)
+**步骤 A — 提取课程元数据**：
 
 ```bash
-python -m xiaoe_scraper all <COURSE_URL> \
-    --password <PASSWORD> \
-    --out <OUTPUT_DIR>
+python -m xiaoe_scraper extract "https://u3oz5.xetslk.com/s/xQK7I" \
+    --password 1341 \
+    -o items.json
 ```
 
-Extracts all video metadata, then downloads every video immediately (m3u8 signatures expire quickly).
+生成的 `items.json` 包含所有课程的 id 和标题：
 
-### Two-step mode
-
-Step 1 — extract metadata:
-
-```bash
-python -m xiaoe_scraper extract "https://..." --password 1234 -o items.json
+```json
+[
+  {"id": "v_6a0abcb3e4b0694c5bc519ac", "name": "1.视频剪辑流程"},
+  {"id": "v_6a0abcb5e4b0694c5bc519af", "name": "2.口播视频摄影师角度"},
+  ...
+]
 ```
 
-Step 2 — download:
+**步骤 B — 下载视频**：
 
 ```bash
 python -m xiaoe_scraper download items.json -o ./videos/
 ```
 
-Useful when you want to inspect or edit the item list before downloading.
-
-### Chrome setup
-
-**Windows** — `Win+R` then:
-```
-chrome.exe --remote-debugging-port=9222
-```
-
-**macOS** — Terminal:
-```bash
-open -a "Google Chrome" --args --remote-debugging-port=9222
-```
-
-**Linux**:
-```bash
-google-chrome --remote-debugging-port=9222
-```
-
-Chrome 136+ requires a **non-default** profile directory when using `--remote-debugging-port`.  Add `--user-data-dir=/tmp/chrome-debug` if needed.
+你可以在步骤 B 之前编辑 `items.json`，删除不需要的视频条目。
 
 ---
 
-## How It Works
+## 命令行参数
 
-```
-┌──────────────┐     CDP      ┌──────────────┐    ffmpeg    ┌──────────────┐
-│   Chrome     │◄────────────►│  xiaoe-scraper│────────────►│   .mp4 files │
-│ (debug port) │              │  (Playwright) │             │  (D: drive)  │
-└──────────────┘              └──────────────┘             └──────────────┘
-```
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--password`, `-p` | `""` | 课程解锁密码 |
+| `--out`, `-o` | `./videos` | 视频输出目录 |
+| `--cdp` | `http://localhost:9222` | Chrome 远程调试地址 |
 
-### Architecture
+三个子命令：
 
-1. **Connect** to Chrome via CDP (no extension, no login token copying)
-2. **Navigate** to the course page, auto-fill password
-3. **Scroll** the virtual list repeatedly to trigger lazy-loading (xiaoe-tech renders ~8 items at a time; scrolling forces API pagination)
-4. **Extract** resource IDs and titles from the Vue 2 component tree (`__vue__.$store.SingleItemList`)
-5. **Navigate** to each video page, intercept the `.m3u8` network request, and immediately download with ffmpeg (signed URLs expire in ~10 minutes)
-
-### Key challenges solved
-
-| Challenge | Solution |
-|-----------|----------|
-| **Virtual scrolling** — only 8 of 68 items visible | Scroll `document.body` to bottom, wait for re-render, repeat until stable |
-| **Vue SPA** — no `<a href>` links, click handlers | Read `__vue__.$store` component data directly |
-| **Chinese text corruption** — Playwright JS eval mangles surrogates | Encode titles to base64 in the browser, decode in Python |
-| **Short-lived m3u8 tokens** — sign param expires in minutes | Download *immediately* after capturing each URL |
-| **Chrome 136+** — blocks `--remote-debugging-port` on default profile | Use non-default `--user-data-dir` (or use existing Chrome via the checkbox at `chrome://inspect/#remote-debugging`) |
+| 命令 | 用途 |
+|------|------|
+| `all` | 提取 + 下载，一步完成 |
+| `extract` | 只提取课程列表，输出到 JSON |
+| `download` | 从 JSON 文件批量下载 |
 
 ---
 
-## Project Structure
+## 工作原理
+
+### 整体架构
+
+```
+┌──────────────┐    CDP 协议    ┌───────────────┐    ffmpeg    ┌────────────┐
+│   Chrome     │◄──────────────►│ xiaoe-scraper  │────────────►│  .mp4 文件 │
+│ (9222 端口)  │                │  (Playwright)  │             │ (本地磁盘) │
+└──────────────┘                └───────────────┘             └────────────┘
+```
+
+### 核心流程
+
+1. **连接 Chrome** — 通过 CDP 连接到已打开的 Chrome，复用你的登录态
+2. **自动解锁** — 检测页面是否需要密码，自动填写并提交
+3. **虚拟滚动加载** — 小鹅通页面一次只渲染约 8 条课程，工具反复滚到底部，触发 API 分页加载，直到全部 68 条出现
+4. **提取数据** — 从 Vue 2 组件树中直接读取 `SingleItemList`，获取资源 ID 和标题
+5. **边采边下** — 逐个打开视频页，拦截 `.m3u8` 网络请求，立刻用 ffmpeg 下载（m3u8 签名约 10 分钟过期）
+
+---
+
+## 踩坑经验
+
+以下是开发过程中遇到的 6 个关键问题和解决方案：
+
+| # | 问题 | 原因 | 解决方案 |
+|---|------|------|----------|
+| 1 | **只抓到 8 个视频** | 小鹅通使用虚拟滚动，DOM 只渲染可见条目 | 反复调用 `window.scrollTo(0, body.scrollHeight)`，等 DOM 稳定后再统计数量 |
+| 2 | **找不到下载链接** | 课程列表是 Vue SPA，没有 `<a href>` 标签 | 直接读 Vue 组件树：`el.__vue__.$store.SingleItemList`，用 `resource_id` 构造视频 URL |
+| 3 | **中文标题乱码** | Playwright 的 JS 求值通道会损坏 Unicode surrogate | 浏览器端用 `btoa(encodeURIComponent(text))` 转 base64，Python 端再解码 |
+| 4 | **m3u8 链接过期** | CDN 签名 URL 有效期仅约 10 分钟 | 每获取一个 m3u8 立刻 ffmpeg 下载，不等其他视频 |
+| 5 | **点击后元素失效** | SPA 导航导致 Playwright 的 ElementHandle 变 stale | 不用 ElementHandle 反复点击；先提取全部 ID，再逐个 `page.goto(video_url)` |
+| 6 | **ffmpeg 报 httpproxy 错误** | Windows 代理环境下 ffmpeg 无法连接 | 在 ffmpeg 命令中显式添加 `httpproxy` 到协议白名单 |
+
+---
+
+## 项目结构
 
 ```
 xiaoe-scraper/
 ├── xiaoe_scraper/
-│   ├── __init__.py          # package metadata
-│   ├── __main__.py          # python -m entry
-│   ├── cli.py               # CLI (argparse)
-│   ├── extractor.py         # course metadata extraction
-│   └── downloader.py        # m3u8 capture + ffmpeg download
-├── README.md
-├── LICENSE
-├── requirements.txt
+│   ├── __init__.py          # 包元数据
+│   ├── __main__.py          # python -m 入口
+│   ├── cli.py               # 命令行界面
+│   ├── extractor.py         # 课程元数据提取（CDP→解锁→滚动→数据提取）
+│   └── downloader.py        # m3u8 捕获 + ffmpeg 下载
+├── README.md                # 项目文档
+├── LICENSE                  # MIT 许可证
+├── requirements.txt         # 依赖列表
+├── pyproject.toml           # 安装配置
 └── .gitignore
 ```
 
 ---
 
-## Configuration
+## 常见问题
 
-All configuration is done via CLI flags:
+**Q: 必须登录吗？**
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--password`, `-p` | `""` | Course unlock password |
-| `--out`, `-o` | `./videos` | Output directory |
-| `--cdp` | `http://localhost:9222` | Chrome DevTools Protocol endpoint |
+是的。在启动远程调试的 Chrome 中打开课程页面并登录，工具会复用你的登录态。
 
-Environment variables (optional):
+**Q: 支持哪些平台？**
 
-| Variable | Purpose |
-|----------|---------|
-| `CDP_URL` | Override default CDP endpoint |
+所有小鹅通（xiaoe-tech）搭建的课程平台。URL 中通常包含 `h5.xet.pomoho.com`、`xetslk.com` 或 `xiaoeknow.com`。
 
----
+**Q: 能下载其他内容吗（PDF、音频）？**
 
-## FAQ
+目前仅支持视频。提取器会抓取所有条目，你可以修改下载器来支持其他类型。
 
-**Q: Do I need to be logged in?**
+**Q: 为什么不直接调 API？**
 
-Yes.  Open the course page in the same Chrome instance you launched with `--remote-debugging-port`.  The tool reuses your existing session.
+小鹅通的 API 需要客户端生成的签名参数。通过真实浏览器操作更稳定，也不容易被反爬。
 
-**Q: What platforms are supported?**
+**Q: m3u8 链接多久过期？**
 
-Any site built on xiaoe-tech (小鹅通) — recognizable by `h5.xet.pomoho.com`, `xetslk.com`, or `xiaoeknow.com` in the URL.
+约 10 分钟。所以工具采用"边采边下"策略，不会先存链接再下载。
 
-**Q: Can it download other content (PDFs, audio)?**
+**Q: 支持断点续传吗？**
 
-Currently video-only (resource_type=3).  The extractor captures all items; you can filter or extend the downloader for other types.
-
-**Q: Why not just call the API directly?**
-
-The API requires signed parameters that are generated client-side.  Driving the real browser is more robust against API changes.
-
-**Q: How long do the m3u8 URLs last?**
-
-~10 minutes.  That's why we download immediately rather than storing URLs.
+目前不支持。如果下载中断，重新运行命令，已下载的文件会自动跳过。
 
 ---
 
-## Troubleshooting
+## 故障排除
 
-| Symptom | Fix |
-|---------|-----|
-| `Connection refused` on localhost:9222 | Chrome isn't running with remote debugging.  Re-launch with `--remote-debugging-port=9222` |
-| Only 8 videos found | The list didn't scroll.  Make sure the catalog tab (目录) is active and try increasing scroll pauses |
-| `ffmpeg: command not found` | Install ffmpeg and ensure it's on your `PATH` |
-| `Protocol 'httpproxy' not on whitelist` | Added `httpproxy` to ffmpeg whitelist in v1.0.0.  If it persists, check Windows proxy settings |
-| Videos downloaded but can't play | The m3u8 token likely expired before ffmpeg finished.  Large files (~1 GB) may need the downloader re-run for those specific items |
-| Chinese characters garbled | This is a terminal display issue on Windows.  File names on disk should be correct.  Use `chcp 65001` before running |
-
----
-
-## Contributing
-
-Contributions welcome!  Areas that could use help:
-
-- **Domain skills** — per-site playbooks for other xiaoe-tech-powered sites
-- **Resume support** — persist progress so large courses can be resumed after interruption
-- **Additional content types** — PDFs, audio, live replay downloads
-
-Please open an issue before submitting a PR.
+| 现象 | 解决方法 |
+|------|----------|
+| `Connection refused` 连接被拒绝 | Chrome 没有以远程调试模式运行。重新按第一步启动 Chrome |
+| 只下载到 8 个视频 | 目录没有完全加载。确认"目录"标签页已激活，在页面手动滚动到底部再试 |
+| `ffmpeg: command not found` | 安装 ffmpeg 并确保在 PATH 中 |
+| 下载后无法播放 | 大概率是 m3u8 签名过期。大文件 (~1GB) 下载时间较长，重新运行重试该视频 |
+| 中文终端乱码 | Windows 终端编码问题。运行前执行 `chcp 65001`，文件系统中的文件名不受影响 |
 
 ---
 
-## License
+## 贡献
 
-MIT — see [LICENSE](LICENSE).
+欢迎贡献！以下方向尤其需要帮助：
+
+- **站点适配** — 针对不同小鹅通站点的特定配置
+- **断点续传** — 中断后可从断点继续下载
+- **更多内容类型** — PDF、音频、直播回放下载
+
+提交 PR 前请先开 issue 讨论。
+
+---
+
+## 许可证
+
+MIT — 详见 [LICENSE](LICENSE)。
