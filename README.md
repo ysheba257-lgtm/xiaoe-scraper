@@ -1,6 +1,7 @@
 # xiaoe-scraper
 
-**One-click batch downloader for course videos on xiaoe-tech (小鹅通) platforms.**
+**一键下载小鹅通视频，与对于爬取视频的skill，
+One-click batch downloader for course videos on xiaoe-tech (小鹅通) platforms.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
