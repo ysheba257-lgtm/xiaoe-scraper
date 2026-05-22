@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 
-滚动加载、密码保护、68 个视频的课程页面？一行命令，全自动搞定。
+滚动加载、密码保护、超多个视频的课程页面？一行命令，全自动搞定。
 
 ---
 
