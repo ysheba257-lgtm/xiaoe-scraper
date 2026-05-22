@@ -1,6 +1,7 @@
 # xiaoe-scraper
 
 **小鹅通课程视频一键批量下载器 —— 附带完整的浏览器爬虫 Skill**
+**-- 可直接将文件扔给ai（一键启动）！！**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
